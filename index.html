@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ToDoList</title>
+  <link id="external-css" rel="stylesheet" type="text/css"
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" media="all">
+  <link id="external-css" rel="stylesheet" type="text/css"
+    href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" media="all">
+  <style>
+    body {
+      background: #e5e5e5;
+    }
+    .app {
+      max-width: 400px;
+      margin: 1rem auto;
+    }
+    .app-header {
+      display: flex;
+      align-items: flex-end;
+    }
+    .app-header h1 {
+      flex-grow: 1;
+    }
+    .app-header h2 {
+      font-size: 1.2rem;
+      color: grey;
+    }
+    .panel {
+      display: flex;
+      margin: 0 0 10px;
+    }
+    .search-input {
+      margin-right: 3px;
+      background: #efefef;
+    }
+    .list-group-item {
+      padding: 0.25rem 0.75rem;
+      background: #efefef;
+    }
+    .list-items {
+      font-size: 1.25rem;
+      display: flex;
+    }
+    .list-items span {
+      flex-grow: 1;
+      margin-left: 1.25rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .list-items.important span {
+      font-weight: bold;
+      color: steelblue;
+    }
+    .list-items.done span {
+      text-decoration: line-through;
+    }
+    .list-items button {
+      width: 35px;
+      margin: 3px;
+    }
+    .todo-add-item {
+      display: flex;
+      margin-top: 10px;
+    }
+    .todo-add-item input {
+      margin-right: 3px;
+      background: #efefef;
+    }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const AppHeader = ({toDo, done}) => (
+      <div className="app-header">
+        <h1>ToDoList</h1>
+        <h2>{toDo} more to do, {done} done</h2>
+      </div>
+    )
+    const SearchInput = () => (
+      <input className="form-control search-input" placeholder="search" />
+    )
+    const FilterStatus = () => (
+      <div className="btn-group">
+        <button className="btn btn-info">All</button>
+        <button className="btn btn-outline-secondary">Active</button>
+        <button className="btn btn-outline-secondary">Done</button>
+      </div>
+    )
+    const TodoListItem = ({label, important, done, onDeleteItem,
+                           onToggleImportant, onToggleDone}) => {
+      let styles = 'list-items'
+      if (important) styles += ' important'
+      if (done) styles += ' done'
+      return (
+        <span className={styles}>
+          <span onClick={onToggleDone}>{label}</span>
+          <button 
+            className="btn btn-outline-success btn-sm"
+            onClick={onToggleImportant}>
+              <i className="fa fa-exclamation" />
+          </button>
+          <button 
+            className="btn btn-outline-danger btn-sm"
+            onClick={onDeleteItem}>
+              <i className="fa fa-trash" />
+          </button>
+        </span>
+      )
+    }
+    const TodoList = ({todos, onDeleteItem, onToggleImportant, onToggleDone}) => (
+      <ul className="list-group">
+        {todos.map(({id, ...items}) => {
+          return (
+            <li key={id} className="list-group-item">
+              <TodoListItem
+                {...items}
+                onDeleteItem={() => onDeleteItem(id)}
+                onToggleImportant={() => onToggleImportant(id)}
+                onToggleDone={() => onToggleDone(id)} />
+            </li>
+          )
+        })}
+      </ul>
+    )
+    class TodoAddItem extends React.Component {
+      state = {value: ''}
+      onInputChange = ({target: {value}}) => this.setState({value})
+      onFormSubmit = e => {
+        e.preventDefault()
+        this.props.onAddItem(this.state.value)
+        this.setState({value: ''})
+      }
+      render() {
+        return (
+          <form
+            className="todo-add-item"
+            onSubmit={this.onFormSubmit}>
+            <input
+              className="form-control"
+              placeholder="What needs to be done"
+              value={this.state.value}
+              onChange={this.onInputChange} />
+            <button className="btn btn-outline-secondary">Add</button>
+          </form>
+        )
+      }
+    }
+    class App extends React.Component {
+      maxId = 1
+      state = {
+        todoData: [
+          this.createTodoItem('Drink Coffee'),
+          this.createTodoItem('Create Awesome App'),
+          this.createTodoItem('Have a Lunch')
+        ] 
+      }
+      createTodoItem(label) {
+        return {
+          id: this.maxId++,
+          label,
+          important: false,
+          done: false
+        }
+      }
+      onDeleteItem = id => this.setState(({todoData}) => ({
+        todoData: todoData.filter(el => el.id !== id)
+      }))
+      toggleProperty = (arr, id, keyName) => arr.map(el => {
+        if (el.id === id) el[keyName] = !el[keyName]
+        return el
+      })
+      onToggleImportant = id => this.setState(({todoData}) => ({
+        todoData: this.toggleProperty(todoData, id, 'important')
+      }))
+      onToggleDone = id => this.setState(({todoData}) => ({
+        todoData: this.toggleProperty(todoData, id, 'done')
+      }))
+      onAddItem = text => this.setState(({todoData}) => ({
+        todoData: [
+          ...todoData,
+          this.createTodoItem(text)
+        ]
+      }))
+      render() {
+        const {todoData} = this.state
+        const doneCount = todoData.filter(el => el.done).length
+        const todoCount = todoData.length - doneCount
+        return (
+          <div className="app">
+            <AppHeader toDo={todoCount} done={doneCount} />
+            <div className="panel">
+              <SearchInput />
+              <FilterStatus />
+            </div>
+            <TodoList
+              todos={todoData}
+              onDeleteItem={this.onDeleteItem}
+              onToggleImportant={this.onToggleImportant}
+              onToggleDone={this.onToggleDone} />
+            <TodoAddItem onAddItem={this.onAddItem} />
+          </div>
+        )
+      }
+    }
+    ReactDOM.render(<App />, document.getElementById('root'))
+  </script>
+</body>
+</html>
