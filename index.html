@@ -29,7 +29,7 @@
     }
     .panel {
       display: flex;
-      margin: 0 0 10px;
+      margin-bottom: 10px;
     }
     .search-input {
       margin-right: 3px;
@@ -46,14 +46,14 @@
     .list-items span {
       flex-grow: 1;
       margin-left: 1.25rem;
-      cursor: pointer;
       user-select: none;
+      cursor: pointer;
     }
-    .list-items.important span {
+    .important span {
       font-weight: bold;
       color: steelblue;
     }
-    .list-items.done span {
+    .done span {
       text-decoration: line-through;
     }
     .list-items button {
@@ -82,58 +82,76 @@
         <h2>{toDo} more to do, {done} done</h2>
       </div>
     )
-    const SearchInput = () => (
-      <input className="form-control search-input" placeholder="search" />
+    const SearchInput = ({onSearch}) => (
+      <input
+        className="form-control search-input"
+        placeholder="Search"
+        onChange={e => onSearch(e.target.value)} />
     )
-    const FilterStatus = () => (
-      <div className="btn-group">
-        <button className="btn btn-info">All</button>
-        <button className="btn btn-outline-secondary">Active</button>
-        <button className="btn btn-outline-secondary">Done</button>
-      </div>
-    )
-    const TodoListItem = ({label, important, done, onDeleteItem,
-                           onToggleImportant, onToggleDone}) => {
-      let styles = 'list-items'
-      if (important) styles += ' important'
-      if (done) styles += ' done'
+    const FilterStatus = ({filter, onFilter}) => {
+      const btn = ['All', 'Active', 'Done']
       return (
-        <span className={styles}>
-          <span onClick={onToggleDone}>{label}</span>
-          <button 
-            className="btn btn-outline-success btn-sm"
-            onClick={onToggleImportant}>
-              <i className="fa fa-exclamation" />
-          </button>
-          <button 
-            className="btn btn-outline-danger btn-sm"
-            onClick={onDeleteItem}>
-              <i className="fa fa-trash" />
-          </button>
-        </span>
+        <div className="btn-group">
+          {btn.map(name => (
+            <button
+              key={name}
+              className={`btn btn-${name === filter ? 'info' : 'outline-secondary'}`}
+              onClick={() => onFilter(name)}>
+                {name}
+            </button>
+          ))}
+        </div>
       )
     }
-    const TodoList = ({todos, onDeleteItem, onToggleImportant, onToggleDone}) => (
-      <ul className="list-group">
-        {todos.map(({id, ...items}) => {
-          return (
-            <li key={id} className="list-group-item">
-              <TodoListItem
-                {...items}
-                onDeleteItem={() => onDeleteItem(id)}
-                onToggleImportant={() => onToggleImportant(id)}
-                onToggleDone={() => onToggleDone(id)} />
-            </li>
-          )
-        })}
-      </ul>
+    const TodoListItem = ({label, important, done, onDeleteItem, onEditItem}) => (
+      <span className={`list-items ${important ? 'important' : ''} ${done ? 'done' : ''}`}>
+        <span onClick={() => onEditItem('done')}>{label}</span>
+        <button 
+          className="btn btn-outline-success btn-sm"
+          onClick={() => onEditItem('important')}>
+            <i className="fa fa-exclamation" />
+        </button>
+        <button 
+          className="btn btn-outline-danger btn-sm"
+          onClick={onDeleteItem}>
+            <i className="fa fa-trash" />
+        </button>
+      </span>
     )
+    const TodoList = ({todos, searchValue, filter, onDeleteItem, onEditItem}) => {
+      let todoList
+      switch(filter) {
+        case 'Active': {
+          todoList = todos.filter(({done}) => !done)
+          break
+        }
+        case 'Done': {
+          todoList = todos.filter(({done}) => done)
+          break
+        }
+        default: todoList = [...todos]
+      }
+      return (
+        <ul className="list-group">
+          {todoList.filter(({label}) => label.toLowerCase().includes(searchValue.toLowerCase()))
+            .map(({id, ...items}) => (
+              <li key={id} className="list-group-item">
+                <TodoListItem
+                  {...items}
+                  onDeleteItem={() => onDeleteItem(id)}
+                  onEditItem={action => onEditItem(id, action)} />
+              </li>
+          ))}
+        </ul>
+      )
+    }
     class TodoAddItem extends React.Component {
       state = {value: ''}
       onInputChange = ({target: {value}}) => this.setState({value})
       onFormSubmit = e => {
+        const value = this.state.value.trim()
         e.preventDefault()
-        this.props.onAddItem(this.state.value)
+        value && this.props.onAddItem(value)
         this.setState({value: ''})
       }
       render() {
@@ -141,12 +159,12 @@
           <form
             className="todo-add-item"
             onSubmit={this.onFormSubmit}>
-            <input
-              className="form-control"
-              placeholder="What needs to be done"
-              value={this.state.value}
-              onChange={this.onInputChange} />
-            <button className="btn btn-outline-secondary">Add</button>
+              <input
+                className="form-control"
+                placeholder="What needs to be done"
+                value={this.state.value}
+                onChange={this.onInputChange} />
+              <button className="btn btn-outline-secondary">Add</button>
           </form>
         )
       }
@@ -158,7 +176,9 @@
           this.createTodoItem('Drink Coffee'),
           this.createTodoItem('Create Awesome App'),
           this.createTodoItem('Have a Lunch')
-        ] 
+        ],
+        searchValue: '',
+        filter: 'All'
       }
       createTodoItem(label) {
         return {
@@ -171,15 +191,11 @@
       onDeleteItem = id => this.setState(({todoData}) => ({
         todoData: todoData.filter(el => el.id !== id)
       }))
-      toggleProperty = (arr, id, keyName) => arr.map(el => {
-        if (el.id === id) el[keyName] = !el[keyName]
-        return el
-      })
-      onToggleImportant = id => this.setState(({todoData}) => ({
-        todoData: this.toggleProperty(todoData, id, 'important')
-      }))
-      onToggleDone = id => this.setState(({todoData}) => ({
-        todoData: this.toggleProperty(todoData, id, 'done')
+      onEditItem = (id, action) => this.setState(({todoData}) => ({
+        todoData: todoData.map(el => {
+          if (el.id === id) el[action] = !el[action]
+          return el
+        })
       }))
       onAddItem = text => this.setState(({todoData}) => ({
         todoData: [
@@ -187,28 +203,33 @@
           this.createTodoItem(text)
         ]
       }))
+      onSearch = searchValue => this.setState({searchValue})
+      onFilter = filter => this.setState({filter})
       render() {
-        const {todoData} = this.state
-        const doneCount = todoData.filter(el => el.done).length
+        const {todoData, searchValue, filter} = this.state
+        const doneCount = todoData.filter(({done}) => done).length
         const todoCount = todoData.length - doneCount
         return (
           <div className="app">
             <AppHeader toDo={todoCount} done={doneCount} />
             <div className="panel">
-              <SearchInput />
-              <FilterStatus />
+              <SearchInput onSearch={this.onSearch} />
+              <FilterStatus
+                filter={filter}
+                onFilter={this.onFilter} />
             </div>
             <TodoList
               todos={todoData}
+              searchValue={searchValue}
+              filter={filter}
               onDeleteItem={this.onDeleteItem}
-              onToggleImportant={this.onToggleImportant}
-              onToggleDone={this.onToggleDone} />
+              onEditItem={this.onEditItem} />
             <TodoAddItem onAddItem={this.onAddItem} />
           </div>
         )
       }
     }
-    ReactDOM.render(<App />, document.getElementById('root'))
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />)
   </script>
 </body>
 </html>
