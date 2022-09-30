@@ -69,13 +69,24 @@
       background: #efefef;
     }
   </style>
-  <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
+    const createTodoItem = (id, label) => ({
+      id,
+      label,
+      important: false,
+      done: false
+    })
+    const initialState = [
+      createTodoItem(1, 'Drink Coffee'),
+      createTodoItem(2, 'Create Awesome App'),
+      createTodoItem(3, 'Have a Lunch')
+    ]
     const AppHeader = ({toDo, done}) => (
       <div className="app-header">
         <h1>ToDoList</h1>
@@ -145,89 +156,66 @@
         </ul>
       )
     }
-    class TodoAddItem extends React.Component {
-      state = {value: ''}
-      onInputChange = ({target: {value}}) => this.setState({value})
-      onFormSubmit = e => {
-        const value = this.state.value.trim()
+    const TodoAddItem = ({onAddItem}) => {
+      const [value, setValue] = React.useState('')
+      const onFormSubmit = e => {
         e.preventDefault()
-        value && this.props.onAddItem(value)
-        this.setState({value: ''})
+        value.trim() && onAddItem(value.trim())
+        setValue('')
       }
-      render() {
-        return (
-          <form
-            className="todo-add-item"
-            onSubmit={this.onFormSubmit}>
-              <input
-                className="form-control"
-                placeholder="What needs to be done"
-                value={this.state.value}
-                onChange={this.onInputChange} />
-              <button className="btn btn-outline-secondary">Add</button>
-          </form>
-        )
-      }
+      return (
+        <form
+          className="todo-add-item"
+          onSubmit={onFormSubmit}>
+            <input
+              className="form-control"
+              placeholder="What needs to be done"
+              value={value}
+              onChange={e => setValue(e.target.value)} />
+            <button className="btn btn-outline-secondary">Add</button>
+        </form>
+      )
     }
-    class App extends React.Component {
-      maxId = 1
-      state = {
-        todoData: [
-          this.createTodoItem('Drink Coffee'),
-          this.createTodoItem('Create Awesome App'),
-          this.createTodoItem('Have a Lunch')
-        ],
-        searchValue: '',
-        filter: 'All'
+    const App = () => {
+      const [maxId, setMaxId] = React.useState(4)
+      const [todoData, setTodoData] = React.useState(initialState)
+      const [searchValue, setSearchValue] = React.useState('')
+      const [filter, setFilter] = React.useState('All')
+      const onAddItem = text => {
+        setMaxId(maxId + 1)
+        setTodoData([...todoData, createTodoItem(maxId, text)])
       }
-      createTodoItem(label) {
-        return {
-          id: this.maxId++,
-          label,
-          important: false,
-          done: false
-        }
-      }
-      onDeleteItem = id => this.setState(({todoData}) => ({
-        todoData: todoData.filter(el => el.id !== id)
-      }))
-      onEditItem = (id, action) => this.setState(({todoData}) => ({
-        todoData: todoData.map(el => {
+      const onDeleteItem = id => setTodoData(
+        todoData.filter(el => el.id !== id)
+      )
+      const onEditItem = (id, action) => setTodoData(
+         todoData.map(el => {
           if (el.id === id) el[action] = !el[action]
           return el
         })
-      }))
-      onAddItem = text => this.setState(({todoData}) => ({
-        todoData: [
-          ...todoData,
-          this.createTodoItem(text)
-        ]
-      }))
-      onSearch = searchValue => this.setState({searchValue})
-      onFilter = filter => this.setState({filter})
-      render() {
-        const {todoData, searchValue, filter} = this.state
-        const doneCount = todoData.filter(({done}) => done).length
-        const todoCount = todoData.length - doneCount
-        return (
-          <div className="app">
-            <AppHeader toDo={todoCount} done={doneCount} />
-            <div className="panel">
-              <SearchInput onSearch={this.onSearch} />
-              <FilterStatus
-                filter={filter}
-                onFilter={this.onFilter} />
-            </div>
-            <TodoList
-              todos={todoData}
-              searchValue={searchValue}
+      )
+      const onSearch = searchValue => setSearchValue(searchValue)
+      const onFilter = filter => setFilter(filter)
+      const doneCount = todoData.filter(({done}) => done).length
+      const todoCount = todoData.length - doneCount
+      return (
+        <div className="app">
+          <AppHeader toDo={todoCount} done={doneCount} />
+          <div className="panel">
+            <SearchInput onSearch={onSearch} />
+            <FilterStatus
               filter={filter}
-              onDeleteItem={this.onDeleteItem}
-              onEditItem={this.onEditItem} />
-            <TodoAddItem onAddItem={this.onAddItem} />
+              onFilter={onFilter} />
           </div>
-        )
-      }
+          <TodoList
+            todos={todoData}
+            searchValue={searchValue}
+            filter={filter}
+            onDeleteItem={onDeleteItem}
+            onEditItem={onEditItem} />
+          <TodoAddItem onAddItem={onAddItem} />
+        </div>
+      )
     }
     ReactDOM.createRoot(document.getElementById('root')).render(<App />)
   </script>
