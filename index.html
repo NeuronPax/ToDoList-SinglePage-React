@@ -76,30 +76,96 @@
 <body>
   <div id="root"></div>
   <script type="text/babel">
+    const Context = React.createContext(Context)
     const createTodoItem = (id, label) => ({
       id,
       label,
       important: false,
       done: false
     })
-    const initialState = [
-      createTodoItem(1, 'Drink Coffee'),
-      createTodoItem(2, 'Create Awesome App'),
-      createTodoItem(3, 'Have a Lunch')
-    ]
-    const AppHeader = ({toDo, done}) => (
-      <div className="app-header">
-        <h1>ToDoList</h1>
-        <h2>{toDo} more to do, {done} done</h2>
-      </div>
-    )
-    const SearchInput = ({onSearch}) => (
-      <input
-        className="form-control search-input"
-        placeholder="Search"
-        onChange={e => onSearch(e.target.value)} />
-    )
-    const FilterStatus = ({filter, onFilter}) => {
+    const initialState = {
+      maxId: 4,
+      searchValue: '',
+      filter: 'All',
+      todoData: [
+        createTodoItem(1, 'Drink Coffee'),
+        createTodoItem(2, 'Create Awesome App'),
+        createTodoItem(3, 'Have a Lunch')
+      ]
+    }
+    const ADD_ITEM = 'ADD_ITEM'
+    const DELETE_ITEM = 'DELETE_ITEM'
+    const EDIT_ITEM = 'EDIT_ITEM'
+    const SEARCH_ITEM = 'SEARCH_ITEM'
+    const FILTER_ITEM = 'FILTER_ITEM'
+    const onAddItem = payload => ({
+      type: ADD_ITEM,
+      payload
+    })
+    const onDeleteItem = payload => ({
+      type: DELETE_ITEM,
+      payload
+    })
+    const onEditItem = (id, action) => ({
+      type: EDIT_ITEM,
+      payload: {id, action}
+    })
+    const onSearch = payload => ({
+      type: SEARCH_ITEM,
+      payload
+    })
+    const onFilter = payload => ({
+      type: FILTER_ITEM,
+      payload
+    })
+    const reducer = (state, {type, payload}) => {
+      switch(type) {
+        case ADD_ITEM: return {
+          ...state,
+          maxId: state.maxId + 1,
+          todoData: [...state.todoData, createTodoItem(state.maxId, payload)]
+        }
+        case DELETE_ITEM: return {
+          ...state,
+          todoData: state.todoData.filter(el => el.id !== payload)
+        }
+        case EDIT_ITEM: return {
+          ...state,
+          todoData: state.todoData.map(el => {
+            if (el.id === payload.id) el[payload.action] = !el[payload.action]
+            return el
+          })
+        }
+        case SEARCH_ITEM: return {
+          ...state,
+          searchValue: payload
+        }
+        case FILTER_ITEM: return {
+          ...state,
+          filter: payload
+        }
+      }
+    }
+    const AppHeader = () => {
+      const {todoCount, doneCount} = React.useContext(Context)
+      return (
+        <div className="app-header">
+          <h1>ToDoList</h1>
+          <h2>{todoCount} more to do, {doneCount} done</h2>
+        </div>
+      )
+    }
+    const SearchInput = () => {
+      const {dispatch} = React.useContext(Context)
+      return (
+        <input
+          className="form-control search-input"
+          placeholder="Search"
+          onChange={e => dispatch(onSearch(e.target.value))} />
+      )
+    }
+    const FilterStatus = () => {
+      const {state: {filter}, dispatch} = React.useContext(Context)
       const btn = ['All', 'Active', 'Done']
       return (
         <div className="btn-group">
@@ -107,7 +173,7 @@
             <button
               key={name}
               className={`btn btn-${name === filter ? 'info' : 'outline-secondary'}`}
-              onClick={() => onFilter(name)}>
+              onClick={() => dispatch(onFilter(name))}>
                 {name}
             </button>
           ))}
@@ -129,18 +195,19 @@
         </button>
       </span>
     )
-    const TodoList = ({todos, searchValue, filter, onDeleteItem, onEditItem}) => {
+    const TodoList = () => {
+      const {state: {todoData, searchValue, filter}, dispatch} = React.useContext(Context)
       let todoList
       switch(filter) {
         case 'Active': {
-          todoList = todos.filter(({done}) => !done)
+          todoList = todoData.filter(({done}) => !done)
           break
         }
         case 'Done': {
-          todoList = todos.filter(({done}) => done)
+          todoList = todoData.filter(({done}) => done)
           break
         }
-        default: todoList = [...todos]
+        default: todoList = [...todoData]
       }
       return (
         <ul className="list-group">
@@ -149,18 +216,19 @@
               <li key={id} className="list-group-item">
                 <TodoListItem
                   {...items}
-                  onDeleteItem={() => onDeleteItem(id)}
-                  onEditItem={action => onEditItem(id, action)} />
+                  onDeleteItem={() => dispatch(onDeleteItem(id))}
+                  onEditItem={action => dispatch(onEditItem(id, action))} />
               </li>
           ))}
         </ul>
       )
     }
-    const TodoAddItem = ({onAddItem}) => {
+    const TodoAddItem = () => {
+      const {dispatch} = React.useContext(Context)
       const [value, setValue] = React.useState('')
       const onFormSubmit = e => {
         e.preventDefault()
-        value.trim() && onAddItem(value.trim())
+        value.trim() && dispatch(onAddItem(value.trim()))
         setValue('')
       }
       return (
@@ -177,44 +245,21 @@
       )
     }
     const App = () => {
-      const [maxId, setMaxId] = React.useState(4)
-      const [todoData, setTodoData] = React.useState(initialState)
-      const [searchValue, setSearchValue] = React.useState('')
-      const [filter, setFilter] = React.useState('All')
-      const onAddItem = text => {
-        setMaxId(maxId + 1)
-        setTodoData([...todoData, createTodoItem(maxId, text)])
-      }
-      const onDeleteItem = id => setTodoData(
-        todoData.filter(el => el.id !== id)
-      )
-      const onEditItem = (id, action) => setTodoData(
-         todoData.map(el => {
-          if (el.id === id) el[action] = !el[action]
-          return el
-        })
-      )
-      const onSearch = searchValue => setSearchValue(searchValue)
-      const onFilter = filter => setFilter(filter)
-      const doneCount = todoData.filter(({done}) => done).length
-      const todoCount = todoData.length - doneCount
+      const [state, dispatch] = React.useReducer(reducer, initialState)
+      const doneCount = state.todoData.filter(({done}) => done).length
+      const todoCount = state.todoData.length - doneCount
       return (
-        <div className="app">
-          <AppHeader toDo={todoCount} done={doneCount} />
-          <div className="panel">
-            <SearchInput onSearch={onSearch} />
-            <FilterStatus
-              filter={filter}
-              onFilter={onFilter} />
+        <Context.Provider value={{state, dispatch, todoCount, doneCount}}>
+          <div className="app">
+            <AppHeader />
+            <div className="panel">
+              <SearchInput />
+              <FilterStatus />
+            </div>
+            <TodoList />
+            <TodoAddItem />
           </div>
-          <TodoList
-            todos={todoData}
-            searchValue={searchValue}
-            filter={filter}
-            onDeleteItem={onDeleteItem}
-            onEditItem={onEditItem} />
-          <TodoAddItem onAddItem={onAddItem} />
-        </div>
+        </Context.Provider>
       )
     }
     ReactDOM.createRoot(document.getElementById('root')).render(<App />)
