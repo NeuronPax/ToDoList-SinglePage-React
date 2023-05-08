@@ -5,78 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ToDoList</title>
   <link id="external-css" rel="stylesheet" type="text/css"
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" media="all">
-  <link id="external-css" rel="stylesheet" type="text/css"
     href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" media="all">
-  <style>
-    body {
-      background: #e5e5e5;
-    }
-    .app {
-      max-width: 400px;
-      margin: 1rem auto;
-    }
-    .app-header {
-      display: flex;
-      align-items: flex-end;
-    }
-    .app-header h1 {
-      flex-grow: 1;
-    }
-    .app-header h2 {
-      font-size: 1.2rem;
-      color: grey;
-    }
-    .panel {
-      display: flex;
-      margin-bottom: 10px;
-    }
-    .search-input {
-      margin-right: 3px;
-      background: #efefef;
-    }
-    .list-group-item {
-      padding: 0.25rem 0.75rem;
-      background: #efefef;
-    }
-    .list-items {
-      font-size: 1.25rem;
-      display: flex;
-    }
-    .list-items span {
-      flex-grow: 1;
-      margin-left: 1.25rem;
-      user-select: none;
-      cursor: pointer;
-    }
-    .important span {
-      font-weight: bold;
-      color: steelblue;
-    }
-    .done span {
-      text-decoration: line-through;
-    }
-    .list-items button {
-      width: 35px;
-      margin: 3px;
-    }
-    .todo-add-item {
-      display: flex;
-      margin-top: 10px;
-    }
-    .todo-add-item input {
-      margin-right: 3px;
-      background: #efefef;
-    }
-  </style>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-gray-200 text-gray-700">
   <div id="root"></div>
   <script type="text/babel">
-    const Context = React.createContext(Context)
     const createTodoItem = (id, label) => ({
       id,
       label,
@@ -84,96 +21,80 @@
       done: false
     })
     const initialState = {
-      maxId: 4,
-      searchValue: '',
-      filter: 'All',
       todoData: [
         createTodoItem(1, 'Drink Coffee'),
         createTodoItem(2, 'Create Awesome App'),
         createTodoItem(3, 'Have a Lunch')
-      ]
+      ],
+      searchValue: '',
+      filter: 'All'
     }
-    const ADD_ITEM = 'ADD_ITEM'
-    const DELETE_ITEM = 'DELETE_ITEM'
-    const EDIT_ITEM = 'EDIT_ITEM'
-    const SEARCH_ITEM = 'SEARCH_ITEM'
-    const FILTER_ITEM = 'FILTER_ITEM'
-    const onAddItem = payload => ({
-      type: ADD_ITEM,
-      payload
-    })
-    const onDeleteItem = payload => ({
-      type: DELETE_ITEM,
-      payload
-    })
-    const onEditItem = (id, action) => ({
-      type: EDIT_ITEM,
-      payload: {id, action}
-    })
-    const onSearch = payload => ({
-      type: SEARCH_ITEM,
-      payload
-    })
-    const onFilter = payload => ({
-      type: FILTER_ITEM,
-      payload
-    })
-    const reducer = (state, {type, payload}) => {
-      switch(type) {
-        case ADD_ITEM: return {
-          ...state,
-          maxId: state.maxId + 1,
-          todoData: [...state.todoData, createTodoItem(state.maxId, payload)]
-        }
-        case DELETE_ITEM: return {
-          ...state,
-          todoData: state.todoData.filter(el => el.id !== payload)
-        }
-        case EDIT_ITEM: return {
-          ...state,
-          todoData: state.todoData.map(el => {
-            if (el.id === payload.id) el[payload.action] = !el[payload.action]
-            return el
-          })
-        }
-        case SEARCH_ITEM: return {
-          ...state,
-          searchValue: payload
-        }
-        case FILTER_ITEM: return {
-          ...state,
-          filter: payload
-        }
-      }
-    }
-    const AppHeader = () => {
-      const {todoCount, doneCount} = React.useContext(Context)
+    const DataContext = React.createContext()
+    const DataProvider = ({children}) => {
+      const [state, setState] = React.useState(initialState)
+      const deleteItem = id => setState(state => ({
+        ...state,
+        todoData: state.todoData.filter(el => el.id !== id)
+      }))
+      const editItem = (id, action) => setState(state => ({
+        ...state,
+        todoData: state.todoData.map(el => {
+          if (el.id === id) el[action] = !el[action]
+          return el
+        })
+      }))
+      const addItem = label => setState(state => ({
+        ...state,
+        todoData: [
+          ...state.todoData,
+          createTodoItem(Date.now(), label)
+        ]
+      }))
+      const onSearch = searchValue => setState(state => ({
+        ...state,
+        searchValue
+      }))
+      const onFilter = filter => setState(state => ({
+        ...state,
+        filter
+      }))
       return (
-        <div className="app-header">
-          <h1>ToDoList</h1>
-          <h2>{todoCount} more to do, {doneCount} done</h2>
+        <DataContext.Provider value={{state, deleteItem, editItem, addItem, onSearch, onFilter}}>
+          {children}
+        </DataContext.Provider>
+      )
+    }
+    const useData = () => React.useContext(DataContext)
+    const AppHeader = () => {
+      const {state: {todoData}} = useData()
+      const doneCount = todoData.filter(({done}) => done).length
+      const todoCount = todoData.length - doneCount
+      return (
+        <div className='flex items-end'>
+          <h1 className='flex-1 text-4xl tracking-wider'>ToDoList</h1>
+          <h2 className='text-gray-500'>{todoCount} more to do, {doneCount} done</h2>
         </div>
       )
     }
     const SearchInput = () => {
-      const {dispatch} = React.useContext(Context)
+      const {onSearch} = useData()
       return (
         <input
-          className="form-control search-input"
+          className='flex-1 border border-gray-300 rounded-md bg-gray-100 mr-1 py-2 px-3 outline-none focus:ring-4 ring-blue-300 focus:bg-white transition'
           placeholder="Search"
-          onChange={e => dispatch(onSearch(e.target.value))} />
+          onChange={e => onSearch(e.target.value)} />
       )
     }
     const FilterStatus = () => {
-      const {state: {filter}, dispatch} = React.useContext(Context)
+      const {state: {filter}, onFilter} = useData()
       const btn = ['All', 'Active', 'Done']
       return (
-        <div className="btn-group">
+        <div className='flex border border-gray-400 rounded-md divide-x divide-gray-400 overflow-hidden'>
           {btn.map(name => (
             <button
               key={name}
-              className={`btn btn-${name === filter ? 'info' : 'outline-secondary'}`}
-              onClick={() => dispatch(onFilter(name))}>
+              className={`px-3 ${name === filter ? 'bg-blue-300 hover:bg-blue-400' : 'hover:bg-gray-400'} hover:text-white transition`}
+              onClick={() => onFilter(name)}>
                 {name}
             </button>
           ))}
@@ -181,22 +102,26 @@
       )
     }
     const TodoListItem = ({label, important, done, onDeleteItem, onEditItem}) => (
-      <span className={`list-items ${important ? 'important' : ''} ${done ? 'done' : ''}`}>
-        <span onClick={() => onEditItem('done')}>{label}</span>
+      <span className='flex items-center'>
+        <span
+          className={`flex-1 ml-5 select-none cursor-pointer ${important && 'font-bold text-blue-400'} ${done && 'line-through'}`}
+          onClick={() => onEditItem('done')}>
+            {label}
+        </span>
         <button 
-          className="btn btn-outline-success btn-sm"
+          className='border border-green-600 rounded text-xs text-green-600 w-8 h-7 m-1 hover:bg-green-600 hover:text-white transition'
           onClick={() => onEditItem('important')}>
             <i className="fa fa-exclamation" />
         </button>
         <button 
-          className="btn btn-outline-danger btn-sm"
+          className='border border-red-600 rounded text-xs text-red-600 w-8 h-7 m-1 hover:bg-red-600 hover:text-white transition'
           onClick={onDeleteItem}>
             <i className="fa fa-trash" />
         </button>
       </span>
     )
     const TodoList = () => {
-      const {state: {todoData, searchValue, filter}, dispatch} = React.useContext(Context)
+      const {state: {todoData, searchValue, filter}, deleteItem, editItem} = useData()
       let todoList
       switch(filter) {
         case 'Active': {
@@ -210,59 +135,58 @@
         default: todoList = [...todoData]
       }
       return (
-        <ul className="list-group">
+        <ul className='border border-gray-300 rounded-md divide-y divide-gray-300 bg-gray-100 text-xl'>
           {todoList.filter(({label}) => label.toLowerCase().includes(searchValue.toLowerCase()))
             .map(({id, ...items}) => (
-              <li key={id} className="list-group-item">
+              <li key={id} className='py-1 px-3'>
                 <TodoListItem
                   {...items}
-                  onDeleteItem={() => dispatch(onDeleteItem(id))}
-                  onEditItem={action => dispatch(onEditItem(id, action))} />
+                  onDeleteItem={() => deleteItem(id)}
+                  onEditItem={action => editItem(id, action)} />
               </li>
           ))}
         </ul>
       )
     }
     const TodoAddItem = () => {
-      const {dispatch} = React.useContext(Context)
+      const {addItem} = useData()
       const [value, setValue] = React.useState('')
       const onFormSubmit = e => {
         e.preventDefault()
-        value.trim() && dispatch(onAddItem(value.trim()))
+        value.trim() && addItem(value.trim())
         setValue('')
       }
       return (
         <form
-          className="todo-add-item"
+          className='flex mt-2'
           onSubmit={onFormSubmit}>
             <input
-              className="form-control"
+              className='flex-1 border border-gray-300 rounded-md bg-gray-100 mr-1 py-2 px-3 outline-none focus:ring-4 ring-blue-300 focus:bg-white transition'
               placeholder="What needs to be done"
               value={value}
               onChange={e => setValue(e.target.value)} />
-            <button className="btn btn-outline-secondary">Add</button>
+            <button className='border border-gray-400 rounded-md px-3 hover:bg-gray-400 hover:text-white transition'>Add</button>
         </form>
       )
     }
     const App = () => {
-      const [state, dispatch] = React.useReducer(reducer, initialState)
-      const doneCount = state.todoData.filter(({done}) => done).length
-      const todoCount = state.todoData.length - doneCount
       return (
-        <Context.Provider value={{state, dispatch, todoCount, doneCount}}>
-          <div className="app">
-            <AppHeader />
-            <div className="panel">
-              <SearchInput />
-              <FilterStatus />
-            </div>
-            <TodoList />
-            <TodoAddItem />
+        <div className='max-w-md my-4 mx-auto'>
+          <AppHeader />
+          <div className='flex my-2'>
+            <SearchInput />
+            <FilterStatus />
           </div>
-        </Context.Provider>
+          <TodoList />
+          <TodoAddItem />
+        </div>
       )
     }
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <DataProvider>
+        <App />
+      </DataProvider>
+    )
   </script>
 </body>
 </html>
